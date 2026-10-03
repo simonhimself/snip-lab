@@ -112,7 +112,7 @@ The drafts are in `issues/`. The order matters, because GitHub numbers issues #1
 
 A worktree is a fresh checkout from git, so anything git ignores **isn't there**: no `node_modules`, no `.dev.vars`.
 
-- [ ] Branch menu above the composer → **Quick worktree**. In that session run `!npm run dev`. It fails (`wrangler: command not found`). That's the trap.
+- [ ] Sidebar: hover the project → **New worktree…**, keep the random branch name, **create worktree**. In that session run `!npm run dev`. It fails (`wrangler: command not found`). That's the trap.
 - [ ] Archive that session and let OpenChamber delete the worktree and branch.
 - [ ] **Settings → Projects → (this project) → Worktree setup commands**, add:
   ```
@@ -120,7 +120,7 @@ A worktree is a fresh checkout from git, so anything git ignores **isn't there**
   cp "$ROOT_PROJECT_PATH/.dev.vars" .dev.vars
   ```
   and turn on **wait for setup**. (`$ROOT_PROJECT_PATH` = this main folder.)
-- [ ] Create another Quick worktree. Dev server works, and `/api/health` says `adminTokenConfigured: true`. Archive it again.
+- [ ] Create another worktree the same way. Dev server works, and `/api/health` says `adminTokenConfigured: true`. Archive it again.
 
 **What you learned:** worktrees are separate folders, and setup commands make every new one usable immediately.
 

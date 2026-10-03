@@ -1,5 +1,9 @@
 {
   "version": 1,
+  "setupWorktree": [
+    "cp \"$ROOT_PROJECT_PATH/.dev.vars\" .dev.vars",
+    "npm install"
+  ],
   "projectActions": [
     {
       "id": "3ceab3c1-80f6-4825-805e-71421a337554",
