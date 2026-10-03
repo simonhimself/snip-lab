@@ -34,7 +34,7 @@
       h1 span { color: var(--accent); }
       p.tagline { margin: 0 0 24px; color: var(--muted); }
       form { display: flex; gap: 8px; }
-      input {
+      input, select {
         flex: 1;
         padding: 12px 14px;
         border: 2px solid var(--ink);
@@ -65,7 +65,9 @@
         background: white;
       }
       .short a { color: var(--ink); font-weight: 600; word-break: break-all; }
+      select { flex: 0 0 auto; }
       .error { color: #b3261e; }
+      .expiry { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
       .qr {
         display: flex;
         flex-direction: column;
@@ -96,6 +98,13 @@
 
       <form id="shorten-form">
         <input id="url-input" type="text" placeholder="https://example.com/a/very/long/link" required />
+        <!-- Values are seconds, sent as expiresIn; "" = never expires. -->
+        <select id="expires-select" aria-label="Expires">
+          <option value="">Never</option>
+          <option value="3600">1 hour</option>
+          <option value="86400">1 day</option>
+          <option value="604800">7 days</option>
+        </select>
         <button type="submit">Snip it</button>
       </form>
 
@@ -106,6 +115,7 @@
       const form = document.getElementById("shorten-form");
       const input = document.getElementById("url-input");
       const result = document.getElementById("result");
+      const expiresSelect = document.getElementById("expires-select");
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -114,7 +124,10 @@
         const response = await fetch("/api/links", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ url: input.value.trim() }),
+          body: JSON.stringify({
+            url: input.value.trim(),
+            expiresIn: expiresSelect.value ? Number(expiresSelect.value) : null,
+          }),
         });
         const data = await response.json();
 
@@ -128,6 +141,7 @@
             <a href="${data.shortUrl}" target="_blank" rel="noopener">${data.shortUrl}</a>
             <button type="button" id="copy-btn">Copy</button>
           </div>
+          ${data.expiresAt ? `<p class="expiry">${describeExpiry(data.expiresAt)}</p>` : ""}
           <div class="qr">
             <canvas id="qr-canvas" aria-label="QR code for ${data.shortUrl}" role="img"></canvas>
             <button type="button" id="download-btn">Download PNG</button>
@@ -146,6 +160,19 @@
           link.click();
         });
       });
+
+      // "Expires in 1 hour (Oct 3, 14:05)": relative for a quick read, plus the
+      // local date/time so there's no doubt about when.
+      function describeExpiry(expiresAt) {
+        const when = new Date(expiresAt);
+        const seconds = Math.round((when - Date.now()) / 1000);
+        const units = [["day", 86400], ["hour", 3600], ["minute", 60]];
+        const [unit, size] = units.find(([, s]) => seconds >= s) ?? ["minute", 60];
+        const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+          .format(Math.max(1, Math.round(seconds / size)), unit);
+        const absolute = when.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+        return `Expires ${relative} (${absolute})`;
+      }
 
       // Draw the QR code onto a canvas ourselves so the same pixels are shown
       // on screen and exported as the PNG download.
