@@ -2,7 +2,7 @@
 
 **Turn long links into short ones you can share, scan, and track.** A small URL shortener that runs on Cloudflare Workers.
 
-![Snip after shortening a GitHub link to snip-lab.simons.workers.dev/s/repo, with a QR code and a Download PNG button](docs/assets/snip-preview.png)
+<img src="docs/assets/snip-preview.png" width="460" alt="Snip after shortening a GitHub link to snip-lab.simons.workers.dev/s/repo, with a QR code and a Download PNG button">
 
 *A real link created on the live site.*
 
