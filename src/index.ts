@@ -1,7 +1,7 @@
 // Snip: a tiny URL shortener.
 //
 // Routes (everything else is a static file from ./public):
-//   POST /api/links      { "url": "https://..." } -> { code, shortUrl }
+//   POST /api/links      { "url": "https://...", "code"?: "my-talk" } -> { code, shortUrl }
 //   GET  /api/health     -> basic status, incl. whether ADMIN_TOKEN is set
 //   GET  /api/links/:code -> { code, url, clicks, createdAt } (or 404)
 //   GET  /s/:code        -> 302 redirect to the stored URL (and counts a click)
@@ -16,6 +16,8 @@ interface LinkRecord {
 
 const CODE_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"; // no look-alikes (l/1, o/0)
 const CODE_LENGTH = 6;
+// Custom codes chosen by the user: 3–32 chars of lowercase letters, digits, dashes.
+const CUSTOM_CODE_PATTERN = /^[a-z0-9-]{3,32}$/;
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
@@ -42,7 +44,7 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 async function createLink(request: Request, env: Env, origin: string): Promise<Response> {
-  let body: { url?: unknown };
+  let body: { url?: unknown; code?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -56,7 +58,25 @@ async function createLink(request: Request, env: Env, origin: string): Promise<R
     );
   }
 
-  const code = generateCode();
+  // An empty or missing code means "pick one for me".
+  let code: string;
+  if (body.code === undefined || body.code === null || body.code === "") {
+    code = generateCode();
+  } else {
+    if (typeof body.code !== "string" || !CUSTOM_CODE_PATTERN.test(body.code)) {
+      return Response.json(
+        { error: "Custom code must be 3–32 characters: lowercase letters, numbers and dashes" },
+        { status: 400 },
+      );
+    }
+    // Check-then-put is not atomic on KV, so two requests racing for the same
+    // code could both succeed. Acceptable for a hobby project.
+    if ((await env.LINKS.get(body.code)) !== null) {
+      return Response.json({ error: "That code is taken" }, { status: 409 });
+    }
+    code = body.code;
+  }
+
   const record: LinkRecord = { url: body.url, clicks: 0, createdAt: new Date().toISOString() };
   await env.LINKS.put(code, JSON.stringify(record));
 
