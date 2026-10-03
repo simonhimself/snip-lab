@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "projectActions": [
+    {
+      "id": "3ceab3c1-80f6-4825-805e-71421a337554",
+      "name": "run dev",
+      "command": "npm run dev",
+      "icon": "rocket",
+      "autoOpenUrl": true
+    }
+  ]
+}

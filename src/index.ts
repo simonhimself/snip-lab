@@ -39,7 +39,10 @@ async function createLink(request: Request, env: Env, origin: string): Promise<R
   }
 
   if (typeof body.url !== "string" || !isValidUrl(body.url)) {
-    return Response.json({ error: "Please provide a valid URL" }, { status: 400 });
+    return Response.json(
+      { error: "Please provide a valid web link starting with http:// or https://" },
+      { status: 400 },
+    );
   }
 
   const code = generateCode();
@@ -56,10 +59,14 @@ async function followLink(code: string, env: Env): Promise<Response> {
   return Response.redirect(target, 302);
 }
 
+// Only web links can be shortened. `new URL()` alone also accepts schemes like
+// javascript:, data:, mailto: and ftp:, which would let a short link run
+// scripts or open phishing pages.
+const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
+
 function isValidUrl(value: string): boolean {
   try {
-    new URL(value);
-    return true;
+    return ALLOWED_PROTOCOLS.has(new URL(value).protocol);
   } catch {
     return false;
   }
