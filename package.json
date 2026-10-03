@@ -1,0 +1,18 @@
+{
+  "name": "snip-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A tiny URL shortener on Cloudflare Workers, built to practice OpenChamber + GitHub workflows",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "wrangler": "4.147.0"
+  }
+}

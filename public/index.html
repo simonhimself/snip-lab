@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snip</title>
+    <style>
+      :root {
+        --bg: #f6f1e7;
+        --ink: #1d1b16;
+        --muted: #6b6457;
+        --accent: #f38020; /* Cloudflare orange */
+        --card: #fffaf0;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--ink);
+        font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+      }
+      main {
+        width: min(560px, 92vw);
+        background: var(--card);
+        border: 2px solid var(--ink);
+        border-radius: 14px;
+        padding: 32px;
+        box-shadow: 6px 6px 0 var(--ink);
+      }
+      h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: -1px; }
+      h1 span { color: var(--accent); }
+      p.tagline { margin: 0 0 24px; color: var(--muted); }
+      form { display: flex; gap: 8px; }
+      input {
+        flex: 1;
+        padding: 12px 14px;
+        border: 2px solid var(--ink);
+        border-radius: 8px;
+        font: inherit;
+        background: white;
+      }
+      button {
+        padding: 12px 18px;
+        border: 2px solid var(--ink);
+        border-radius: 8px;
+        background: var(--accent);
+        color: var(--ink);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:active { transform: translate(2px, 2px); }
+      #result { margin-top: 20px; min-height: 48px; }
+      .short {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 2px dashed var(--ink);
+        border-radius: 8px;
+        background: white;
+      }
+      .short a { color: var(--ink); font-weight: 600; word-break: break-all; }
+      .error { color: #b3261e; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>snip<span>.</span></h1>
+      <p class="tagline">Long links in, short links out. Running on Cloudflare Workers + KV.</p>
+
+      <form id="shorten-form">
+        <input id="url-input" type="text" placeholder="https://example.com/a/very/long/link" required />
+        <button type="submit">Snip it</button>
+      </form>
+
+      <div id="result" aria-live="polite"></div>
+    </main>
+
+    <script>
+      const form = document.getElementById("shorten-form");
+      const input = document.getElementById("url-input");
+      const result = document.getElementById("result");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        result.textContent = "Snipping…";
+
+        const response = await fetch("/api/links", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ url: input.value.trim() }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          result.innerHTML = `<p class="error">${data.error}</p>`;
+          return;
+        }
+
+        result.innerHTML = `
+          <div class="short">
+            <a href="${data.shortUrl}" target="_blank" rel="noopener">${data.shortUrl}</a>
+            <button type="button" id="copy-btn">Copy</button>
+          </div>`;
+        document.getElementById("copy-btn").addEventListener("click", async (e) => {
+          await navigator.clipboard.writeText(data.shortUrl);
+          e.target.textContent = "Copied!";
+        });
+      });
+    </script>
+  </body>
+</html>

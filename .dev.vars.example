@@ -1,0 +1,4 @@
+# Copy this file to .dev.vars for local development:  cp .dev.vars.example .dev.vars
+# .dev.vars is git-ignored, so it is NOT copied into new worktrees automatically.
+# (Mission 6 in LEARNING.md fixes that with a worktree setup command.)
+ADMIN_TOKEN=change-me-local-only
