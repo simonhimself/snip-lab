@@ -66,7 +66,28 @@
       }
       .short a { color: var(--ink); font-weight: 600; word-break: break-all; }
       .error { color: #b3261e; }
+      .qr {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .qr canvas {
+        width: 200px;
+        height: 200px;
+        border: 2px solid var(--ink);
+        border-radius: 8px;
+        background: white;
+        image-rendering: pixelated;
+      }
     </style>
+    <!-- QR encoder (MIT, no dependencies). Pinned + SRI so the CDN can't swap the code. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"
+      integrity="sha384-e9EFD6BGC90bkW9aDV5xbbBfzwN7G8YImHao2lfLVKV/hPB0E0go+H3I64h7oHtA"
+      crossorigin="anonymous"
+    ></script>
   </head>
   <body>
     <main>
@@ -106,12 +127,52 @@
           <div class="short">
             <a href="${data.shortUrl}" target="_blank" rel="noopener">${data.shortUrl}</a>
             <button type="button" id="copy-btn">Copy</button>
+          </div>
+          <div class="qr">
+            <canvas id="qr-canvas" aria-label="QR code for ${data.shortUrl}" role="img"></canvas>
+            <button type="button" id="download-btn">Download PNG</button>
           </div>`;
         document.getElementById("copy-btn").addEventListener("click", async (e) => {
           await navigator.clipboard.writeText(data.shortUrl);
           e.target.textContent = "Copied!";
         });
+
+        const canvas = document.getElementById("qr-canvas");
+        drawQr(canvas, data.shortUrl);
+        document.getElementById("download-btn").addEventListener("click", () => {
+          const link = document.createElement("a");
+          link.href = canvas.toDataURL("image/png");
+          link.download = `snip-${data.code ?? "qr"}.png`;
+          link.click();
+        });
       });
+
+      // Draw the QR code onto a canvas ourselves so the same pixels are shown
+      // on screen and exported as the PNG download.
+      function drawQr(canvas, text) {
+        const qr = qrcode(0, "M"); // 0 = pick the smallest version that fits
+        qr.addData(text);
+        qr.make();
+
+        const modules = qr.getModuleCount();
+        const quietZone = 4; // modules of white border, required by scanners
+        const scale = 10; // pixels per module -> crisp PNG for slides/posters
+        const size = (modules + quietZone * 2) * scale;
+
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = "#000000";
+        for (let row = 0; row < modules; row++) {
+          for (let col = 0; col < modules; col++) {
+            if (qr.isDark(row, col)) {
+              ctx.fillRect((col + quietZone) * scale, (row + quietZone) * scale, scale, scale);
+            }
+          }
+        }
+      }
     </script>
   </body>
 </html>
