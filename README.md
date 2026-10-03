@@ -30,3 +30,4 @@ Open http://localhost:8787.
 | `npm run typecheck` | TypeScript check |
 | `npm run types` | Regenerate `worker-configuration.d.ts` after changing `wrangler.jsonc` |
 | `npm run deploy` | Deploy to Cloudflare |
+| `scripts/smoke-test.sh [BASE_URL]` | Check a running instance (default `http://localhost:8787`) |
