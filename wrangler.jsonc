@@ -13,11 +13,14 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*", "/s/*"]
   },
-  // No "id" on purpose: Wrangler creates the KV namespace locally on
-  // `wrangler dev` and on Cloudflare on the first `wrangler deploy`.
+  // The id pins the production namespace ("snip-lab-links", created by the
+  // first `wrangler deploy`). Keep it: deploys from Workers Builds (GitHub)
+  // without an id could provision a second, empty namespace. `wrangler dev`
+  // still uses a local simulated namespace.
   "kv_namespaces": [
     {
-      "binding": "LINKS"
+      "binding": "LINKS",
+      "id": "e6961fe5eabe424bba58e29931acd4ed"
     }
   ]
 }
