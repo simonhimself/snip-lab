@@ -6,9 +6,12 @@
 //   GET  /api/health     -> basic status, incl. whether ADMIN_TOKEN is set
 //   GET  /api/links/:code -> { code, url, clicks, createdAt, expiresAt } (or 404)
 //   GET  /s/:code        -> 302 redirect to the stored URL (and counts a click)
+//   /api/admin/*         -> token-protected admin API, see src/admin.ts
 //
 // Storage: KV namespace LINKS, key = short code, value = JSON LinkRecord.
 // Expiring links use KV's own TTL so Cloudflare deletes the key for us.
+
+import { handleAdmin } from "./admin";
 
 interface LinkRecord {
   url: string;
@@ -29,6 +32,10 @@ const CUSTOM_CODE_PATTERN = /^[a-z0-9-]{3,32}$/;
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname.startsWith("/api/admin/")) {
+      return handleAdmin(request, env, url);
+    }
 
     if (url.pathname === "/api/links" && request.method === "POST") {
       return createLink(request, env, url.origin);

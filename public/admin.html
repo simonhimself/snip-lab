@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Snip admin</title>
+    <style>
+      :root {
+        --bg: #f6f1e7;
+        --ink: #1d1b16;
+        --muted: #6b6457;
+        --accent: #f38020; /* Cloudflare orange */
+        --card: #fffaf0;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 40px 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+      }
+      main {
+        width: min(960px, 94vw);
+        margin: 0 auto;
+        background: var(--card);
+        border: 2px solid var(--ink);
+        border-radius: 14px;
+        padding: 32px;
+        box-shadow: 6px 6px 0 var(--ink);
+      }
+      h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: -1px; }
+      h1 span { color: var(--accent); }
+      p.tagline { margin: 0 0 24px; color: var(--muted); }
+      form, .toolbar { display: flex; gap: 8px; align-items: center; }
+      .toolbar { justify-content: space-between; margin-bottom: 12px; color: var(--muted); }
+      input {
+        flex: 1;
+        padding: 12px 14px;
+        border: 2px solid var(--ink);
+        border-radius: 8px;
+        font: inherit;
+        background: white;
+      }
+      button {
+        padding: 8px 14px;
+        border: 2px solid var(--ink);
+        border-radius: 8px;
+        background: var(--accent);
+        color: var(--ink);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button.secondary { background: white; }
+      button:active { transform: translate(2px, 2px); }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; background: white; }
+      th, td { padding: 8px 10px; border-bottom: 1px solid #e4dccb; text-align: left; vertical-align: top; }
+      th { border-bottom: 2px solid var(--ink); }
+      td.url { word-break: break-all; }
+      td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .tag { font-size: 12px; padding: 1px 6px; border-radius: 4px; background: #e4dccb; margin-left: 4px; }
+      .error { color: #b3261e; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>snip<span>.</span> admin</h1>
+      <p class="tagline">All short links, their clicks, and a delete button.</p>
+
+      <!-- Shown until we have a token that the API accepts. -->
+      <form id="login-form" hidden>
+        <input id="token-input" type="password" placeholder="Admin token" autocomplete="off" required />
+        <button type="submit">Unlock</button>
+      </form>
+
+      <section id="links-section" hidden>
+        <div class="toolbar">
+          <span id="summary"></span>
+          <span>
+            <button type="button" class="secondary" id="refresh-btn">Refresh</button>
+            <button type="button" class="secondary" id="logout-btn">Forget token</button>
+          </span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Code</th><th>URL</th><th>Clicks</th><th>Created</th><th>Expires</th><th></th></tr>
+            </thead>
+            <tbody id="links-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p id="message" aria-live="polite"></p>
+    </main>
+
+    <script>
+      // The token lives in sessionStorage: it survives reloads but is gone
+      // when the tab closes, so it doesn't linger on shared machines.
+      const TOKEN_KEY = "snip-admin-token";
+
+      const loginForm = document.getElementById("login-form");
+      const tokenInput = document.getElementById("token-input");
+      const linksSection = document.getElementById("links-section");
+      const linksBody = document.getElementById("links-body");
+      const summary = document.getElementById("summary");
+      const message = document.getElementById("message");
+
+      function showMessage(text, isError = false) {
+        message.textContent = text;
+        message.className = isError ? "error" : "";
+      }
+
+      function showLogin(text) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        linksSection.hidden = true;
+        loginForm.hidden = false;
+        tokenInput.value = "";
+        tokenInput.focus();
+        showMessage(text ?? "", Boolean(text));
+      }
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN_KEY)}` },
+        });
+        if (response.status === 401) {
+          showLogin("That token was not accepted.");
+          return null;
+        }
+        return response;
+      }
+
+      async function loadLinks() {
+        showMessage("Loading…");
+        const response = await api("/api/admin/links");
+        if (!response) return;
+        if (!response.ok) {
+          showMessage(`Could not load links (${response.status}).`, true);
+          return;
+        }
+        const { links } = await response.json();
+        loginForm.hidden = true;
+        linksSection.hidden = false;
+        renderLinks(links);
+        showMessage("");
+      }
+
+      function formatDate(iso) {
+        return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
+      }
+
+      // Built with DOM nodes + textContent, never innerHTML: URLs are user
+      // input and must not be able to inject markup into the admin page.
+      function cell(text, className) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (className) td.className = className;
+        return td;
+      }
+
+      function tag(text) {
+        const span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = text;
+        return span;
+      }
+
+      function renderLinks(links) {
+        const totalClicks = links.reduce((sum, l) => sum + (l.clicks ?? 0), 0);
+        summary.textContent = `${links.length} link${links.length === 1 ? "" : "s"}, ${totalClicks} click${totalClicks === 1 ? "" : "s"}`;
+        linksBody.replaceChildren();
+
+        if (links.length === 0) {
+          const tr = document.createElement("tr");
+          const td = cell("No links yet.");
+          td.colSpan = 6;
+          tr.append(td);
+          linksBody.append(tr);
+          return;
+        }
+
+        for (const link of links) {
+          const tr = document.createElement("tr");
+
+          const codeCell = document.createElement("td");
+          const a = document.createElement("a");
+          a.href = `/s/${encodeURIComponent(link.code)}`;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = link.code;
+          codeCell.append(a);
+          if (link.legacy) codeCell.append(tag("legacy"));
+          if (link.expired) codeCell.append(tag("expired"));
+
+          const deleteCell = document.createElement("td");
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "secondary";
+          button.textContent = "Delete";
+          button.addEventListener("click", () => deleteLink(link.code));
+          deleteCell.append(button);
+
+          tr.append(
+            codeCell,
+            cell(link.url, "url"),
+            cell(link.clicks ?? "—", "num"),
+            cell(formatDate(link.createdAt)),
+            cell(link.expiresAt ? formatDate(link.expiresAt) : "Never"),
+            deleteCell,
+          );
+          linksBody.append(tr);
+        }
+      }
+
+      async function deleteLink(code) {
+        if (!confirm(`Delete /s/${code}? This cannot be undone.`)) return;
+        const response = await api(`/api/admin/links/${encodeURIComponent(code)}`, { method: "DELETE" });
+        if (!response) return;
+        if (!response.ok && response.status !== 404) {
+          showMessage(`Could not delete ${code} (${response.status}).`, true);
+          return;
+        }
+        await loadLinks();
+      }
+
+      loginForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        sessionStorage.setItem(TOKEN_KEY, tokenInput.value.trim());
+        loadLinks();
+      });
+      document.getElementById("refresh-btn").addEventListener("click", loadLinks);
+      document.getElementById("logout-btn").addEventListener("click", () => showLogin());
+
+      if (sessionStorage.getItem(TOKEN_KEY)) {
+        loadLinks();
+      } else {
+        showLogin();
+      }
+    </script>
+  </body>
+</html>
