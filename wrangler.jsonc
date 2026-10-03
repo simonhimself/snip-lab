@@ -22,5 +22,17 @@
       "binding": "LINKS",
       "id": "e6961fe5eabe424bba58e29931acd4ed"
     }
-  ]
+  ],
+  // Previews (one per branch/PR, via Workers Builds or `wrangler preview`) do
+  // NOT inherit production bindings. They get their own KV namespace so test
+  // links on a PR preview never land in production. All previews share it.
+  // ADMIN_TOKEN for previews lives in the Previews Base config, not here.
+  "previews": {
+    "kv_namespaces": [
+      {
+        "binding": "LINKS",
+        "id": "06bc2a7c39ee4225b41ac9546b5e21cf"
+      }
+    ]
+  }
 }
